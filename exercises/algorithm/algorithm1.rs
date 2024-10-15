@@ -1,5 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 use std::ptr::NonNull;
+use std::vec::*;
 
 #[derive(Debug)]
 struct Node<T> {
@@ -15,7 +16,6 @@ impl<T> Node<T> {
         }
     }
 }
-
 #[derive(Debug)]
 struct LinkedList<T> {
     length: u32,
@@ -50,11 +50,11 @@ impl<T> LinkedList<T> {
         self.length += 1;
     }
 
-    pub fn get(&self, index: i32) -> Option<&T> {
+    pub fn get(&mut self, index: i32) -> Option<&T> {
         self.get_ith_node(self.start, index)
     }
 
-    fn get_ith_node(&self, node: Option<NonNull<Node<T>>>, index: i32) -> Option<&T> {
+    fn get_ith_node(&mut self, node: Option<NonNull<Node<T>>>, index: i32) -> Option<&T> {
         match node {
             None => None,
             Some(next_ptr) => match index {
@@ -64,50 +64,24 @@ impl<T> LinkedList<T> {
         }
     }
 
-    pub fn merge(mut list_a: LinkedList<T>, mut list_b: LinkedList<T>) -> Self
-    where
-        T: Ord + Clone,
-    {
-        let mut merged_list = LinkedList::new();
-
-        // 当前指向两个链表的指针
-        let mut current_a = list_a.start;
-        let mut current_b = list_b.start;
-
-        while current_a.is_some() && current_b.is_some() {
-            unsafe {
-                let val_a = &(*current_a.unwrap().as_ptr()).val;
-                let val_b = &(*current_b.unwrap().as_ptr()).val;
-
-                // 比较并将较小值添加到合并后的链表中
-                if val_a <= val_b {
-                    merged_list.add((*current_a.unwrap().as_ptr()).val.clone());
-                    current_a = (*current_a.unwrap().as_ptr()).next;
-                } else {
-                    merged_list.add((*current_b.unwrap().as_ptr()).val.clone());
-                    current_b = (*current_b.unwrap().as_ptr()).next;
-                }
-            }
-        }
-
-        // 处理剩余的 list_a 中的元素
-        while let Some(current) = current_a {
-            unsafe {
-                merged_list.add((*current.as_ptr()).val.clone());
-                current_a = (*current.as_ptr()).next;
-            }
-        }
-
-        // 处理剩余的 list_b 中的元素
-        while let Some(current) = current_b {
-            unsafe {
-                merged_list.add((*current.as_ptr()).val.clone());
-                current_b = (*current.as_ptr()).next;
-            }
-        }
-
-        merged_list
-    }
+	// pub fn merge(list_a:LinkedList<T>,list_b:LinkedList<T>) -> Self
+	pub fn merge(mut list_a: LinkedList<i32>, mut list_b: LinkedList<i32>) -> LinkedList<i32> {
+		let mut root = LinkedList::new();
+		while list_a.start.is_some() || list_b.start.is_some() {
+			if list_b.start.is_none() ||
+				(list_a.start.is_some() &&
+					// list_a.start.unwrap().as_ref().val < list_b.start.unwrap().as_ref().val
+					*list_a.get(0).unwrap() < *list_b.get(0).unwrap()
+			) {
+				root.add(*list_a.get(0).unwrap());
+				list_a.start = unsafe { (*list_a.start.unwrap().as_ptr()).next };
+			} else {
+				root.add(*list_b.get(0).unwrap());
+				list_b.start = unsafe { (*list_b.start.unwrap().as_ptr()).next };
+			}
+		}
+		root
+	}
 }
 
 impl<T> Display for LinkedList<T>
@@ -144,7 +118,7 @@ mod tests {
         list.add(1);
         list.add(2);
         list.add(3);
-        println!("链表为 {}", list);
+        println!("Linked List is {}", list);
         assert_eq!(3, list.length);
     }
 
@@ -154,55 +128,50 @@ mod tests {
         list_str.add("A".to_string());
         list_str.add("B".to_string());
         list_str.add("C".to_string());
-        println!("链表为 {}", list_str);
+        println!("Linked List is {}", list_str);
         assert_eq!(3, list_str.length);
     }
 
     #[test]
     fn test_merge_linked_list_1() {
-        let mut list_a = LinkedList::<i32>::new();
-        let mut list_b = LinkedList::<i32>::new();
-        let vec_a = vec![1, 3, 5, 7];
-        let vec_b = vec![2, 4, 6, 8];
-        let target_vec = vec![1, 2, 3, 4, 5, 6, 7, 8];
+		let mut list_a = LinkedList::<i32>::new();
+		let mut list_b = LinkedList::<i32>::new();
+		let vec_a = vec![1,3,5,7];
+		let vec_b = vec![2,4,6,8];
+		let target_vec = vec![1,2,3,4,5,6,7,8];
+		
+		for i in 0..vec_a.len(){
+			list_a.add(vec_a[i]);
+		}
+		for i in 0..vec_b.len(){
+			list_b.add(vec_b[i]);
+		}
+		println!("list a {} list b {}", list_a,list_b);
+		let mut list_c = LinkedList::<i32>::merge(list_a,list_b);
+		println!("merged List is {}", list_c);
+		for i in 0..target_vec.len(){
+			assert_eq!(target_vec[i],*list_c.get(i as i32).unwrap());
+		}
+	}
+	#[test]
+	fn test_merge_linked_list_2() {
+		let mut list_a = LinkedList::<i32>::new();
+		let mut list_b = LinkedList::<i32>::new();
+		let vec_a = vec![11,33,44,88,89,90,100];
+		let vec_b = vec![1,22,30,45];
+		let target_vec = vec![1,11,22,30,33,44,45,88,89,90,100];
 
-        for &val in &vec_a {
-            list_a.add(val);
-        }
-        for &val in &vec_b {
-            list_b.add(val);
-        }
-
-        println!("链表 a: {} 链表 b: {}", list_a, list_b);
-        let list_c = LinkedList::<i32>::merge(list_a, list_b);
-        println!("合并后的链表为 {}", list_c);
-
-        for (i, &val) in target_vec.iter().enumerate() {
-            assert_eq!(val, *list_c.get(i as i32).unwrap());
-        }
-    }
-
-    #[test]
-    fn test_merge_linked_list_2() {
-        let mut list_a = LinkedList::<i32>::new();
-        let mut list_b = LinkedList::<i32>::new();
-        let vec_a = vec![11, 33, 44, 88, 89, 90, 100];
-        let vec_b = vec![1, 22, 30, 45];
-        let target_vec = vec![1, 11, 22, 30, 33, 44, 45, 88, 89, 90, 100];
-
-        for &val in &vec_a {
-            list_a.add(val);
-        }
-        for &val in &vec_b {
-            list_b.add(val);
-        }
-
-        println!("链表 a: {} 链表 b: {}", list_a, list_b);
-        let list_c = LinkedList::<i32>::merge(list_a, list_b);
-        println!("合并后的链表为 {}", list_c);
-
-        for (i, &val) in target_vec.iter().enumerate() {
-            assert_eq!(val, *list_c.get(i as i32).unwrap());
-        }
-    }
+		for i in 0..vec_a.len(){
+			list_a.add(vec_a[i]);
+		}
+		for i in 0..vec_b.len(){
+			list_b.add(vec_b[i]);
+		}
+		println!("list a {} list b {}", list_a,list_b);
+		let mut list_c = LinkedList::<i32>::merge(list_a,list_b);
+		println!("merged List is {}", list_c);
+		for i in 0..target_vec.len(){
+			assert_eq!(target_vec[i],*list_c.get(i as i32).unwrap());
+		}
+	}
 }
